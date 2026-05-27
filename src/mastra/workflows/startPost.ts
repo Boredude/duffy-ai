@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireBrandChannel } from '../../channels/registry.js';
 import { logger } from '../../config/logger.js';
 import { startWorkflow } from '../../services/workflowRunner.js';
+import { phraseAsDuffy } from '../agents/voice.js';
 
 /**
  * `/post` command flow.
@@ -52,9 +53,13 @@ const collectBrief = createStep({
         return { brandId: inputData.brandId, briefingHint: hint };
       }
       const channel = await requireBrandChannel(inputData.brandId);
-      await channel.sendText(
-        "What should this post be about? Reply with a topic or angle, or 'any' to let me pick.",
-      );
+      const briefAsk = await phraseAsDuffy({
+        goal: 'Ask the brand what topic or angle they want for their next post.',
+        mustConvey: "They should reply with a topic or angle, or 'any' to let me pick.",
+        fallback: "What should this post be about? Reply with a topic or angle, or 'any' to let me pick.",
+        brandId: inputData.brandId,
+      });
+      await channel.sendText(briefAsk);
       await suspend({ awaiting: 'post_brief' });
       return undefined as never;
     }

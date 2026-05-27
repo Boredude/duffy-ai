@@ -16,6 +16,7 @@ import {
 import { getContentType } from '../../services/creative/registry.js';
 import { runCreativePipeline } from '../../services/creative/runCreativePipeline.js';
 import { stepIdSchema } from '../../services/creative/types.js';
+import { phraseAsDuffy } from '../agents/voice.js';
 
 /**
  * Post-draft approval workflow.
@@ -88,8 +89,18 @@ const generate = createStep({
       try {
         const channel = await requireBrandChannel(brandId);
         const message = editDirective
-          ? "I couldn't regenerate that draft — try sending your edit again, or /reset if it stays stuck."
-          : "I hit a snag drafting your post — give it a minute and try /post again. If it keeps failing, /reset will clear any stuck state.";
+          ? await phraseAsDuffy({
+              goal: 'Inform the brand that a draft regeneration failed and ask them to try again.',
+              mustConvey: "The regeneration didn't work. They should try sending their edit again, or /reset if it stays stuck.",
+              fallback: "I couldn't regenerate that draft — try sending your edit again, or /reset if it stays stuck.",
+              brandId,
+            })
+          : await phraseAsDuffy({
+              goal: 'Inform the brand that post generation failed and ask them to try again later.',
+              mustConvey: 'Something went wrong on my end drafting the post. They should give it a minute and try /post again. /reset will clear stuck state if it keeps failing.',
+              fallback: "I hit a snag drafting your post — give it a minute and try /post again. If it keeps failing, /reset will clear any stuck state.",
+              brandId,
+            });
         await channel.sendText(message);
       } catch (notifyErr) {
         logger.error(
@@ -159,9 +170,13 @@ const requestApproval = createStep({
       } else {
         // Capability fallback: send the image, then ask for a textual reply.
         await channel.sendImage(imageUrl, body);
-        await channel.sendText(
-          `Reply 'approve', 'edit', or 'reject' for draft ${draft.id}.`,
-        );
+        const fallbackPrompt = await phraseAsDuffy({
+          goal: 'Ask the brand to reply with their decision on the post draft.',
+          mustConvey: "They should reply with 'approve', 'edit', or 'reject'.",
+          fallback: "Reply 'approve', 'edit', or 'reject' to let me know what you think.",
+          brandId: brand.id,
+        });
+        await channel.sendText(fallbackPrompt);
       }
       await updateDraftStatus(draft.id, 'pending_approval');
 
@@ -210,18 +225,27 @@ const handleDecision = createStep({
         { startAfter: new Date(scheduledAt) },
       );
       const when = new Date(scheduledAt).toLocaleString('en-US', { timeZone: brand.timezone });
-      await channel.sendText(
-        `Locked in 🔒 — I'll send the final post back to you on ${when} so you can publish it.`,
-      );
+      const approvalMsg = await phraseAsDuffy({
+        goal: "Celebrate that the brand approved the post and set their expectation for when it'll be delivered.",
+        mustConvey: `The post is locked in. I'll send it back to them on ${when} so they can publish it.`,
+        fallback: `Locked in 🔒 — I'll send the final post back to you on ${when} so you can publish it.`,
+        context: { when, igHandle: brand.igHandle },
+        brandId,
+      });
+      await channel.sendText(approvalMsg);
       logger.info({ draftId, brandId, scheduledAt }, 'Draft approved and delivery scheduled');
       return { brandId, draftId, scheduledAt, finalDecision: decision };
     }
 
     if (decision === 'reject') {
       await updateDraftStatus(draftId, 'rejected');
-      await channel.sendText(
-        `No worries — tossed that one. I'll come back with a different angle next time.`,
-      );
+      const rejectMsg = await phraseAsDuffy({
+        goal: 'Acknowledge that the brand rejected the post, warmly and without guilt.',
+        mustConvey: "No problem — that draft is gone. I'll come back with a fresh angle next time.",
+        fallback: "No worries — tossed that one. I'll come back with a different angle next time.",
+        brandId,
+      });
+      await channel.sendText(rejectMsg);
       return { brandId, draftId, scheduledAt, finalDecision: decision };
     }
 
@@ -246,7 +270,16 @@ const handleDecision = createStep({
       'Edit intent classified',
     );
 
-    await channel.sendText("On it — taking another swing now ✏️");
+    const editAckMsg = await phraseAsDuffy({
+      goal: 'Acknowledge the edit request and signal that regeneration is starting.',
+      mustConvey: note
+        ? `Got it — I'll take another swing with that in mind: "${note}".`
+        : "On it — taking another swing now.",
+      fallback: "On it — taking another swing now ✏️",
+      context: note ? { editNote: note } : undefined,
+      brandId,
+    });
+    await channel.sendText(editAckMsg);
     return {
       brandId,
       draftId,
