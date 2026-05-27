@@ -41,6 +41,13 @@ export type KapsoOutboundMessage =
   | KapsoOutboundImage
   | KapsoOutboundInteractive;
 
+export type KapsoReadReceipt = {
+  messaging_product: 'whatsapp';
+  status: 'read';
+  message_id: string;
+  typing_indicator?: { type: 'text' };
+};
+
 export type KapsoSendResponse = {
   messaging_product: 'whatsapp';
   contacts: Array<{ input: string; wa_id: string }>;

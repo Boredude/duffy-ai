@@ -95,4 +95,5 @@ export interface BoundChannel {
   sendImage(imageUrl: string, caption?: string): Promise<void>;
   sendButtons(args: SendButtonsArgs): Promise<void>;
   sendImageWithButtons(args: SendImageWithButtonsArgs): Promise<void>;
+  sendTyping(messageId: string): Promise<void>;
 }

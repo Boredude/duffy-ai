@@ -2,6 +2,7 @@ import { loadEnv } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
 import type {
   KapsoOutboundMessage,
+  KapsoReadReceipt,
   KapsoSendResponse,
   KapsoInteractiveButton,
 } from './types.js';
@@ -89,6 +90,22 @@ export async function sendImageWithButtons(args: {
       action: { buttons: args.buttons },
     },
   });
+}
+
+export async function sendTypingIndicator(messageId: string): Promise<void> {
+  const env = loadEnv();
+  const url = `${API_BASE}/${env.KAPSO_PHONE_NUMBER_ID}/messages`;
+  const body: KapsoReadReceipt = {
+    messaging_product: 'whatsapp',
+    status: 'read',
+    message_id: messageId,
+    typing_indicator: { type: 'text' },
+  };
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': env.KAPSO_API_KEY },
+    body: JSON.stringify(body),
+  }).catch((err) => logger.warn({ err, messageId }, 'sendTypingIndicator failed'));
 }
 
 export async function sendButtons(args: {

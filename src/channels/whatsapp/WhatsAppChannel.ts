@@ -3,6 +3,7 @@ import {
   sendImage as kapsoSendImage,
   sendImageWithButtons as kapsoSendImageWithButtons,
   sendText as kapsoSendText,
+  sendTypingIndicator as kapsoSendTypingIndicator,
 } from '../../services/kapso/client.js';
 import type {
   BoundChannel,
@@ -49,6 +50,10 @@ class WhatsAppBoundChannel implements BoundChannel {
       ...(args.footer ? { footer: args.footer } : {}),
       buttons: toKapsoButtons(args.buttons),
     });
+  }
+
+  async sendTyping(messageId: string): Promise<void> {
+    await kapsoSendTypingIndicator(messageId);
   }
 
   async sendImageWithButtons(args: SendImageWithButtonsArgs): Promise<void> {

@@ -114,6 +114,7 @@ export async function dispatchInboundMessage(parsed: ChannelMessage): Promise<vo
   // The channel adapter is bound to the same external id we just upserted —
   // saves a follow-up DB read inside `getBrandChannel`.
   const channel: BoundChannel = getChannel(parsed.channelKind).bind(parsed.externalUserId);
+  void channel.sendTyping(parsed.externalMessageId);
 
   const log = logger.child({
     brandId: brand.id,

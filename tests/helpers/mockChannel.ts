@@ -12,6 +12,7 @@ export type MockBoundChannel = BoundChannel & {
   sendImage: Mock<(imageUrl: string, caption?: string) => Promise<void>>;
   sendButtons: Mock<(args: SendButtonsArgs) => Promise<void>>;
   sendImageWithButtons: Mock<(args: SendImageWithButtonsArgs) => Promise<void>>;
+  sendTyping: Mock<(messageId: string) => Promise<void>>;
 };
 
 const FULL_CAPS: ChannelCapabilities = {
@@ -40,6 +41,7 @@ export function makeMockBoundChannel(
     sendImage: vi.fn(async (_imageUrl: string, _caption?: string) => undefined),
     sendButtons: vi.fn(async (_args: SendButtonsArgs) => undefined),
     sendImageWithButtons: vi.fn(async (_args: SendImageWithButtonsArgs) => undefined),
+    sendTyping: vi.fn(async (_messageId: string) => undefined),
   };
 }
 
