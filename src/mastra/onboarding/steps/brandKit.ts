@@ -151,6 +151,8 @@ async function presentBrandKitOrAskRetry(
     prefetchedScrape?: InstagramScrapeResult;
     /** Skip the "diving in…" message when the caller already sent it. */
     suppressDivingMessage?: boolean;
+    /** Language sample from a prior user message — keeps response in the right language. */
+    conversationLanguageSample?: string | null;
   } = {},
 ): Promise<'reviewing' | 'retry_handle' | 'service_unavailable'> {
   if (!opts.suppressDivingMessage) {
@@ -159,7 +161,12 @@ async function presentBrandKitOrAskRetry(
         goal: "You just got a handle and are starting to scrape & analyze it. Tell them you're looking, and to give you a sec.",
         mustConvey: 'Tell them you are diving into the given handle now and to hold tight for a moment.',
         brandId,
-        context: { igHandle: handle },
+        context: {
+          igHandle: handle,
+          ...(opts.conversationLanguageSample
+            ? { conversationLanguageSample: opts.conversationLanguageSample }
+            : {}),
+        },
         fallback: `Diving into @${handle} now — give me a moment to study the feed.`,
       }),
     );
@@ -196,6 +203,7 @@ async function probeAndAnalyzeOrAskWebsite(
   brandId: string,
   handle: string,
   channel: BoundChannel,
+  conversationLanguageSample?: string | null,
 ): Promise<'awaiting_website' | 'reviewing' | 'retry_handle' | 'service_unavailable'> {
   await channel.sendText(
     await phraseAsDuffy({
@@ -203,7 +211,10 @@ async function probeAndAnalyzeOrAskWebsite(
       mustConvey:
         'Tell them you are diving into the given handle now and to hold tight for a moment.',
       brandId,
-      context: { igHandle: handle },
+      context: {
+        igHandle: handle,
+        ...(conversationLanguageSample ? { conversationLanguageSample } : {}),
+      },
       fallback: `Diving into @${handle} now — give me a moment to study the feed.`,
     }),
   );
@@ -347,7 +358,12 @@ async function executeBrandKit(ctx: OnboardingStepContext): Promise<OnboardingSt
     // is non-null here (the previous branch suspended).
     if (!brand.brandKitJson) {
       const handle = brand.igHandle as string;
-      const outcome = await probeAndAnalyzeOrAskWebsite(brandId, handle, channel);
+      const outcome = await probeAndAnalyzeOrAskWebsite(
+        brandId,
+        handle,
+        channel,
+        brand.conversationLanguageSample,
+      );
       if (outcome === 'awaiting_website') {
         ctx.suspend({ question: 'website' });
       }
@@ -364,12 +380,25 @@ async function executeBrandKit(ctx: OnboardingStepContext): Promise<OnboardingSt
     const extracted = await extractHandleWithLLM(reply);
     if (extracted) {
       await updateBrand(brandId, { igHandle: extracted });
-      const outcome = await probeAndAnalyzeOrAskWebsite(brandId, extracted, channel);
+      const outcome = await probeAndAnalyzeOrAskWebsite(
+        brandId,
+        extracted,
+        channel,
+        brand.conversationLanguageSample,
+      );
       if (outcome === 'awaiting_website') {
         ctx.suspend({ question: 'website' });
       }
       ctx.suspend({ question: 'brand_kit_review', mode: outcome });
     }
+    // Detect and persist the user's language when they write in a non-ASCII script.
+    // This lets future phraseAsDuffy calls (e.g. the "diving in" message after the
+    // handle is submitted) stay in the right language even when the handle itself is ASCII.
+    const hasNonAscii = /[^ -]/.test(reply);
+    if (hasNonAscii && !brand.conversationLanguageSample) {
+      await updateBrand(brandId, { conversationLanguageSample: reply.slice(0, 80) });
+    }
+
     const isInvalidFormat = looksLikeHandle(reply);
     const { goal, mustConvey, fallback, maxChars } = isInvalidFormat
       ? {
@@ -383,9 +412,9 @@ async function executeBrandKit(ctx: OnboardingStepContext): Promise<OnboardingSt
       : {
           goal: 'The user replied without a usable Instagram handle. React naturally to what they actually said (answer briefly if it\'s a question, acknowledge if it\'s small talk), then ask them to send the IG handle.',
           mustConvey:
-            "Acknowledge or briefly answer their message in 1 short sentence based on the userMessage in context. Then ask them to send the IG handle (e.g. @theirname). NEVER claim you received their handle, found their account, are setting anything up, or are about to take action — you have NOT received a usable handle yet. Don't say things like \"let me get that set up\" or \"i see it now\".",
+            "Acknowledge or briefly answer their message in 1 short sentence based on the userMessage in context. If it's a greeting or small talk you don't fully understand, respond warmly (e.g. \"Hey!\") — NEVER say you don't understand or that the message doesn't make sense. Then ask them to send the IG handle (e.g. @theirname). NEVER claim you received their handle, found their account, are setting anything up, or are about to take action — you have NOT received a usable handle yet.",
           fallback:
-            "Good question — but first I need your Instagram handle to get started. Send your username (like @nike) or the full instagram.com link?",
+            "Hey! To get started I just need your Instagram handle — send your username (like @nike) or the full instagram.com link?",
           maxChars: 320,
         };
     await channel.sendText(
@@ -393,7 +422,14 @@ async function executeBrandKit(ctx: OnboardingStepContext): Promise<OnboardingSt
         goal,
         mustConvey,
         brandId,
-        context: { userMessage: reply },
+        context: {
+          userMessage: reply,
+          ...(brand.conversationLanguageSample
+            ? { conversationLanguageSample: brand.conversationLanguageSample }
+            : hasNonAscii
+              ? { conversationLanguageSample: reply.slice(0, 80) }
+              : {}),
+        },
         fallback,
         ...(maxChars ? { maxChars } : {}),
       }),

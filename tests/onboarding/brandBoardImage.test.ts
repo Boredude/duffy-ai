@@ -62,6 +62,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
         { url: 'https://www.instagram.com/p/p3/', imageUrl: 'https://r2.example/p3.jpg', caption: '', likes: 5 },
       ],
     },
+    conversationLanguageSample: null,
     brandBoardImageUrl: null,
     timezone: 'Asia/Jerusalem',
     status: 'onboarding',

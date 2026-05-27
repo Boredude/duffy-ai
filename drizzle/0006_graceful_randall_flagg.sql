@@ -1,0 +1,1 @@
+ALTER TABLE "brands" ADD COLUMN "conversation_language_sample" text;

@@ -35,6 +35,7 @@ export async function updateBrand(
     brandBoardImageUrl: string | null;
     timezone: string;
     status: Brand['status'];
+    conversationLanguageSample: string | null;
   }>,
 ): Promise<Brand> {
   const db = getDb();

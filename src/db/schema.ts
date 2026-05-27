@@ -69,6 +69,9 @@ export const brands = pgTable('brands', {
   // reply (URL or skip). Lets us distinguish a website reply from a
   // retry / new-handle reply when both arrive in the same sub-state.
   awaitingWebsiteReply: boolean('awaiting_website_reply').default(false).notNull(),
+  // A short sample of the user's writing in their non-English language, used to
+  // preserve language continuity when the next message (e.g. an IG handle) is ASCII.
+  conversationLanguageSample: text('conversation_language_sample'),
   voiceJson: jsonb('voice_json').$type<BrandVoice | null>().default(null),
   cadenceJson: jsonb('cadence_json').$type<BrandCadence | null>().default(null),
   brandKitJson: jsonb('brand_kit_json').$type<BrandKit | null>().default(null),

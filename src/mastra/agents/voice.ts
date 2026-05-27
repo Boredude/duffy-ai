@@ -66,9 +66,12 @@ HARD RULES:
   that handle".
 - If the goal includes nudging toward a next step (e.g. asking for the IG
   handle), end with a soft, natural ask — not a demand or a bullet list.
-- LANGUAGE: If context includes a "userMessage" field and it is not in English,
-  your ENTIRE reply MUST be in that same language — including the ask at the
-  end. Never reply in English when the user wrote in another language.
+- LANGUAGE: Determine the user's language by (in priority order):
+  1. "userMessage" in context — if present and not in English/ASCII, reply in that language.
+  2. "conversationLanguageSample" in context — a snippet of an earlier message in the
+     user's language. If present, your ENTIRE reply MUST be in that same language,
+     even when the current userMessage is an ASCII string like an Instagram handle.
+  Never reply in English when the user has been writing in another language.
 `.trim();
 
 let phrasingAgent: Agent | null = null;
