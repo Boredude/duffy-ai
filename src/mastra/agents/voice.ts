@@ -28,12 +28,12 @@ VOICE — Duffy
 - Sound smart, not robotic. If the user said something off-script, react to
   what they actually said — don't ignore it.
 - Don't apologize unless something genuinely went wrong. Don't over-promise.
-- NEVER narrate your reasoning, plan, or tool intent to the user. Reply only
-  with text the user should read. No "I need to…", "Let me check…",
-  "First, I'll…", "Without X I can't…", "I see the brand kit is already
-  built", "this sounds like approval, not a request to change". If you
-  can't act, say so warmly in the user's frame, not yours — never explain
-  why internally.
+- NEVER narrate your tool calls, data fetches, or internal plans in technical
+  terms: no "I need to fetch…", "First, I'll call…", "Without X I can't…",
+  "I see the brand kit is already built", "this sounds like approval, not a
+  request to change". Brief natural acknowledgments are fine ("on it",
+  "one sec", "give me a moment"). If you can't act, say so warmly in the
+  user's frame — never explain your internal reasoning.
 - NEVER echo internal directives, schema labels, or plumbing in user-facing
   text: brandId, fromPhone, tool names like \`updateBrandContext\` /
   \`getBrandContext\`, field labels like "voice/cadence/timezone",
@@ -146,8 +146,8 @@ const LEAK_PATTERNS: RegExp[] = [
   /\bupdateBrandContext\b/,
   /\bgetBrandContext\b/,
   /\bvoice\/cadence\/timezone\b/i,
-  // Leading-reasoning patterns ("I need to…", "Let me…", etc).
-  /^\s*(?:i need to|let me|first[,]?\s*i'?ll|i'?ll need to|i should (?:get|check|fetch)|i can't map|without a concrete)/i,
+  // Leading-reasoning patterns that expose tool calls or data-fetch intent.
+  /^\s*(?:i need to (?:fetch|get|check|look up|call)|first[,]?\s*i'?ll (?:fetch|get|call)|i'?ll need to (?:fetch|get|call)|i should (?:get|check|fetch)|i can't map|without a concrete)/i,
   // Mid-message reasoning narration that surfaces internal state.
   /\bi see the brand kit is already (?:built|locked)/i,
   /\bsounds like approval,? not (?:a )?request/i,

@@ -3,8 +3,13 @@ import type { BoundChannel, ChannelMessage } from '../channels/types.js';
 import { logger } from '../config/logger.js';
 import { loadBrandContext, type BrandContext } from '../context/BrandContext.js';
 import { upsertBrandByChannel } from '../db/repositories/brandChannels.js';
-import { findActiveRunForBrand, findRunByDraft } from '../db/repositories/workflowRuns.js';
+import {
+  findActiveRunForBrand,
+  findRunByDraft,
+  findRunningRunForBrand,
+} from '../db/repositories/workflowRuns.js';
 import { getDuffyAgent } from '../mastra/agents/duffy.js';
+import { phraseAsDuffy } from '../mastra/agents/voice.js';
 import { memoryFor } from '../mastra/memory.js';
 import { handleSlashCommand, isSlashCommand } from './slashCommands.js';
 import { resumeWorkflow, startWorkflow } from './workflowRunner.js';
@@ -144,6 +149,28 @@ export async function dispatchInboundMessage(parsed: ChannelMessage): Promise<vo
       log.error({ err, runId: activeRun.runId }, 'Failed to resume workflow');
       await channel.sendText("Sorry, something went off the rails on my side. Mind sending that one more time?");
     }
+    return;
+  }
+
+  // Guard: if a workflow is actively running (not suspended), the user's
+  // message arrived mid-processing. Send a hold-on ack and drop the message —
+  // resuming is meaningless since no step is suspended and waiting for input.
+  const runningRun = await findRunningRunForBrand(brand.id);
+  if (runningRun) {
+    const RUNNING_HINT: Record<string, string> = {
+      brandOnboarding: 'analyzing your Instagram feed and building the brand kit',
+      postDraftApproval: 'generating your post',
+      startPost: 'kicking off a new post',
+    };
+    const hint = RUNNING_HINT[runningRun.workflowId] ?? 'working on something';
+    log.info({ runId: runningRun.runId, workflowId: runningRun.workflowId }, 'Workflow running — sending busy ack');
+    const msg = await phraseAsDuffy({
+      goal: 'User sent a message while Duffy is actively processing something.',
+      mustConvey: `I'm still ${hint} — I haven't forgotten them, will be right back.`,
+      fallback: 'Still on it — I\'ll be right back with you in a moment!',
+      brandId: brand.id,
+    });
+    await channel.sendText(msg);
     return;
   }
 

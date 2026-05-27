@@ -46,6 +46,17 @@ export async function findActiveRunForBrand(brandId: string): Promise<WorkflowRu
   return rows[0] ?? null;
 }
 
+export async function findRunningRunForBrand(brandId: string): Promise<WorkflowRun | null> {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(workflowRuns)
+    .where(and(eq(workflowRuns.brandId, brandId), eq(workflowRuns.status, 'running')))
+    .orderBy(desc(workflowRuns.updatedAt))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function findRunByDraft(draftId: string): Promise<WorkflowRun | null> {
   const db = getDb();
   const rows = await db
